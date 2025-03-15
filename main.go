@@ -9,41 +9,37 @@ import (
 )
 
 func problemPuller(fileName string) ([]problem, error) {
-
-	//1.Open the file
-	if fObj, err := os.Open(fileName); err == nil {
-
-		//2.Create a new reader
-		csvR := csv.NewReader(fObj)
-
-		//3.Read the files
-		if cLines, err := csvR.ReadAll(); err == nil {
-			//4.Call the parseProblem function
-			return parseProblem(cLines), nil
-		} else {
-			return nil,
-				fmt.Errorf("error in readinf date in csv"+
-					"format from %s file; %s", fileName, err.Error())
-		}
-
-	} else {
-		return nil,
-			fmt.Errorf("error in opening %s file; %s", fileName, err.Error())
+	// Open the file
+	fObj, err := os.Open(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("error in opening %s file: %s", fileName, err.Error())
 	}
+	defer fObj.Close() // Ensure the file is closed
+
+	// Create a new CSV reader
+	csvR := csv.NewReader(fObj)
+
+	// Read the CSV file
+	cLines, err := csvR.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("error in reading data from %s file: %s", fileName, err.Error())
+	}
+
+	// Parse the problems
+	return parseProblem(cLines), nil
 }
 
 func parseProblem(lines [][]string) []problem {
-
 	r := make([]problem, len(lines))
 
-	for i:=0;i<len(lines);i++{
-		r[i] = problem{question: lines[i][0], answer:lines[i][1]}
+	for i := 0; i < len(lines); i++ {
+		r[i] = problem{question: lines[i][0], answer: lines[i][1]}
 	}
 
 	return r
 }
 
-func exit(msg string){
+func exit(msg string) {
 	fmt.Println(msg)
 	os.Exit(1)
 }
@@ -54,59 +50,54 @@ type problem struct {
 }
 
 func main() {
-	//1. Input the name of the file
+	// Input the name of the file
 	fName := flag.String("f", "quiz.csv", "path for the csv file")
 
-	//2. Set the duration of the timer
+	// Set the duration of the timer
 	timer := flag.Int("t", 30, "timer for the quiz")
 	flag.Parse()
 
-	//3. Pull the problems from the file (calling the problem parser function)
-	problems, err := problemPuller((*fName))
-
-	//4. Handle the error
+	// Pull the problems from the file
+	problems, err := problemPuller(*fName)
 	if err != nil {
-		exit(fmt.Sprintf("something went wrong:%s", err.Error()))
+		exit(fmt.Sprintf("Something went wrong: %s", err.Error()))
 	}
 
-	//5. Create a variable to count the correct answers
+	// Variable to count correct answers
 	correctAns := 0
 
-	//6. Using the duration of timer, we want to initialize the timer
+	// Initialize the timer
 	tObj := time.NewTimer(time.Duration(*timer) * time.Second)
-	ansC := make(chan string)
 
-	//7. Loop through the problems, print the questions, we will accept the answers
-	problemLoop:
+	// Loop through the problems
+	for i, p := range problems {
+		fmt.Printf("Problem %d: %s ", i+1, p.question)
 
-		for i,p := range problems{
+		ansC := make(chan string) // Create a new channel for each question
+
+		// Take input in a separate goroutine
+		go func() {
 			var answer string
+			fmt.Scanf("%s\n", &answer) // Read user input
+			ansC <- answer
+		}()
 
-			fmt.Printf("Problem %d : %s", i+1, p.question)
-
-			go func(){
-				fmt.Scanf("%s", &answer)
-				ansC<- answer
-			}()
-
-			select{
-				case <- tObj.C:
-					fmt.Println()
-					break problemLoop
-				
-				case iAns := <-ansC:
-					if iAns == p.answer{
-						correctAns++
-					}
-					if i== len(problems){
-						close(ansC)
-					}
+		select {
+		case <-tObj.C:
+			fmt.Println("\nTime's up!")
+			goto END // Exit the loop when the timer expires
+		case iAns := <-ansC:
+			if iAns == p.answer {
+				correctAns++
 			}
-
 		}
+	}
 
-	//8. We will calculate and print the result
-	fmt.Printf("Your result is %d out of %d/n", correctAns, len(problems))
-	fmt.Printf("Press enter to exit")
-	<-ansC
+END:
+	// Print the result
+	fmt.Printf("\nYour result is %d out of %d\n", correctAns, len(problems))
+
+	// Wait for user to press enter before exiting
+	fmt.Println("Press Enter to exit...")
+	fmt.Scanln()
 }
