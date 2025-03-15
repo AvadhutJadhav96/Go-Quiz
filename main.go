@@ -77,5 +77,36 @@ func main() {
 	ansC := make(chan string)
 
 	//7. Loop through the problems, print the questions, we will accept the answers
+	problemLoop:
+
+		for i,p := range problems{
+			var answer string
+
+			fmt.Printf("Problem %d : %s", i+1, p.question)
+
+			go func(){
+				fmt.Scanf("%s", &answer)
+				ansC<- answer
+			}()
+
+			select{
+				case <- tObj.C:
+					fmt.Println()
+					break problemLoop
+				
+				case iAns := <-ansC:
+					if iAns == p.answer{
+						correctAns++
+					}
+					if i== len(problems){
+						close(ansC)
+					}
+			}
+
+		}
+
 	//8. We will calculate and print the result
+	fmt.Printf("Your result is %d out of %d/n", correctAns, len(problems))
+	fmt.Printf("Press enter to exit")
+	<-ansC
 }
