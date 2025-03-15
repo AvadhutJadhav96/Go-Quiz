@@ -34,6 +34,18 @@ func problemPuller(fileName string) ([]problem, error) {
 
 func parseProblem(lines [][]string) []problem {
 
+	r := make([]problem, len(lines))
+
+	for i:=0;i<len(lines);i++{
+		r[i] = problem{question: lines[i][0], answer:lines[i][1]}
+	}
+
+	return r
+}
+
+func exit(msg string){
+	fmt.Println(msg)
+	os.Exit(1)
 }
 
 type problem struct {
